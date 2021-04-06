@@ -1,6 +1,33 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <pthread.h>
+
+int **C;
+
+typedef struct{
+    int id;
+    int tamanho;
+    int **A;
+    int **B;
+} tArgs;
+
+void *tarefa(void *arg){
+    tArgs *args = (tArgs*) arg;
+
+    int tamanho = args->tamanho ;
+    int i = args->id;
+    int **A = args->A;
+    int **B = args->B;
+
+    for (int j = 0; j < tamanho; j++){
+            C[i][j] = 0;
+            for (int k = 0; k < tamanho; k++){
+               C[i][j] += A[i][k] * B[k][j]; 
+            }
+    }
+
+}
 
 //--------------------------------------------------------------
 // Libera memoria dos ponteiros para os calculos
@@ -105,13 +132,33 @@ int **alocarMatrixInicial(int tamanho) {
 
 //Multiplicacao ingenua de duas matrizes
 void multiplica(int **A, int **B, int **C, int tamanho) {
+    pthread_t *tid;
+    tArgs *args;
+
+    tid = (pthread_t*) malloc(sizeof(pthread_t) * tamanho);
+    if (tid == NULL)
+        printf("Erro malloc threads\n");
+
+    args = (tArgs*) malloc(sizeof(tArgs) * tamanho);
+    if (args == NULL)
+        printf("Erro malloc args\n");
+    
+    //gera threads
     for (int i = 0; i < tamanho; i++){
+        (args + i)->id = i;
+        (args + i)->tamanho = tamanho;
+        (args + i)->A = A; (args + i)->B = B;
+        if (pthread_create(tid + i, NULL, tarefa, (void*) (args + i))){
+            printf("Erro pthread_create\n");
+        }
+        
+        /*
         for (int j = 0; j < tamanho; j++){
             C[i][j] = 0;
             for (int k = 0; k < tamanho; k++){
                C[i][j] += A[i][k] * B[k][j]; 
             }  
-        } 
+        }*/ 
     }
 }
 //--------------------------------------------------------------
@@ -120,7 +167,7 @@ int main(void) {
 
     int **A;
     int **B;
-    int **C; 
+    //int **C; 
     int tamanho;
 
     printf("Digite o tamanho da matriz\n");
