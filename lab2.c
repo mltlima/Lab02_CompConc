@@ -1,9 +1,16 @@
+/*Miguel Lima Tavares
+ *DRE:119161571
+ *Disciplina: Computacao Concorrente
+ *Prof: Silvana Rossetto
+ *Laboratorio 1
+*/
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
 #include <pthread.h>
 
 int **C;
+int nThreads;
 
 typedef struct{
     int id;
@@ -12,20 +19,28 @@ typedef struct{
     int **B;
 } tArgs;
 
+
 void *tarefa(void *arg){
     tArgs *args = (tArgs*) arg;
 
     int tamanho = args->tamanho ;
-    int i = args->id;
+    int id = args->id;
     int **A = args->A;
     int **B = args->B;
 
-    for (int j = 0; j < tamanho; j++){
-            C[i][j] = 0;
-            for (int k = 0; k < tamanho; k++){
-               C[i][j] += A[i][k] * B[k][j]; 
-            }
+    clock_t tempoThread = clock();
+    //pula as linhas da matriz de acordo com o numero de threads
+    for (int i = id; i < tamanho; i += nThreads){
+        for (int j = 0; j < tamanho; j++){
+                    C[i][j] = 0;
+                for (int k = 0; k < tamanho; k++){
+                    C[i][j] += A[i][k] * B[k][j]; 
+                }
+        }
     }
+    tempoThread = clock() - tempoThread;
+    double tempoExecucao4 = (double)(tempoThread) / CLOCKS_PER_SEC;
+    printf("\nTempo gasto thread %d: %f\n",id ,tempoExecucao4);
 
 }
 
@@ -135,48 +150,64 @@ void multiplica(int **A, int **B, int **C, int tamanho) {
     pthread_t *tid;
     tArgs *args;
 
-    tid = (pthread_t*) malloc(sizeof(pthread_t) * tamanho);
+    tid = (pthread_t*) malloc(sizeof(pthread_t) * nThreads);
     if (tid == NULL)
         printf("Erro malloc threads\n");
 
-    args = (tArgs*) malloc(sizeof(tArgs) * tamanho);
+    args = (tArgs*) malloc(sizeof(tArgs) * nThreads);
     if (args == NULL)
         printf("Erro malloc args\n");
     
+
     //gera threads
-    for (int i = 0; i < tamanho; i++){
+    clock_t tempoCriarThreads = clock();
+    for (int i = 0; i < nThreads; i++){
         (args + i)->id = i;
         (args + i)->tamanho = tamanho;
         (args + i)->A = A; (args + i)->B = B;
         if (pthread_create(tid + i, NULL, tarefa, (void*) (args + i))){
             printf("Erro pthread_create\n");
+            break;
         }
-        
-        /*
-        for (int j = 0; j < tamanho; j++){
-            C[i][j] = 0;
-            for (int k = 0; k < tamanho; k++){
-               C[i][j] += A[i][k] * B[k][j]; 
-            }  
-        }*/ 
     }
+
+    tempoCriarThreads = clock() - tempoCriarThreads;
+    double tempoExecucao2 = (double)(tempoCriarThreads) / CLOCKS_PER_SEC;
+    printf("\nTempo gasto criacao das threads %f\n", tempoExecucao2);
+
+    //espera o fim das threads
+    for (int i = 0; i < nThreads; i++)
+        pthread_join(*(tid + i), NULL);
+    
+    free(args);
+    free(tid);
 }
 //--------------------------------------------------------------
 
 int main(void) {
 
     int **A;
-    int **B;
-    //int **C; 
+    int **B;    
     int tamanho;
 
     printf("Digite o tamanho da matriz\n");
     scanf("%d",&tamanho);
+    printf("Digite a quantidade de threads\n");
+    scanf("%d",&nThreads);
+
+    if (nThreads > tamanho)
+        nThreads = tamanho;
+    
+    
 
     srand(time(NULL));
+    clock_t tempoAlocar = clock();
     A = alocarMatrixInicial(tamanho);
     B = alocarMatrixInicial(tamanho);
     C = alocarMatrix(tamanho);
+    tempoAlocar = clock() - tempoAlocar;
+    double tempoExecucao1 = (double)(tempoAlocar) / CLOCKS_PER_SEC;
+    printf("\nTempo gasto alocar vetores %f\n", tempoExecucao1);
 
     //-------------------------------------------------------
     //Imprime matrizes geradas aleatoriamente
@@ -197,13 +228,13 @@ int main(void) {
 */
     //--------------------------------------------------------
 
-    //Multiplicacao normal
-    clock_t tempo = clock();
+    //Multiplicacao 
+    clock_t tempoMultiplicar = clock();
     multiplica(A,B,C,tamanho);
-    tempo = clock() - tempo;
-    double tempoExecucao = (double)(tempo) / CLOCKS_PER_SEC;
-    printf("\nTempo gasto multiplicacao normal %f\n", tempoExecucao);
-    /*
+    tempoMultiplicar = clock() - tempoMultiplicar;
+    double tempoExecucao3 = (double)(tempoMultiplicar) / CLOCKS_PER_SEC;
+    printf("\nTempo gasto multiplicacao %f\n", tempoExecucao3);
+  /*  
     printf("Matrix resultante \n");
     for (int i = 0; i < tamanho; i++) {
         for (int j = 0; j < tamanho; j++)
@@ -211,6 +242,9 @@ int main(void) {
             printf("\n");
     }
 */
+    
+    
+
     A = liberarMemoria(A,tamanho);
     B = liberarMemoria(B,tamanho);
     C = liberarMemoria(C,tamanho);
